@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zombie Wave Game</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #111;
+            font-family: Arial, sans-serif;
+            color: white;
+        }
+        canvas {
+            display: block;
+            margin: 20px auto;
+            background-color: #333;
+            border: 2px solid white;
+        }
+        #wave-counter, #score-counter, #ammo-counter {
+            position: absolute;
+            font-size: 20px;
+            color: white;
+        }
+        #wave-counter { top: 10px; left: 10px; }
+        #score-counter { top: 10px; right: 10px; }
+        #ammo-counter { top: 10px; left: 50%; transform: translateX(-50%); }
+    </style>
+</head>
+<body>
+    <div id="wave-counter">Wave: 1</div>
+    <div id="score-counter">Score: 0</div>
+    <div id="ammo-counter">Ammo: 10/10</div>
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+
+        const player = {
+            x: 100,
+            y: 500,
+            width: 30,
+            height: 30,
+            color: "blue",
+            speed: 5,
+            velocityY: 0,
+            isJumping: false,
+            bullets: [],
+            clipSize: 10,
+            currentAmmo: 10,
+            reloading: false,
+            reloadTime: 2000,
+            jumpPower: 15, // Updated jump power for higher jumps
+        };
+
+        const zombies = [];
+        const ground = { x: 0, y: 550, width: 800, height: 50 };
+        const platforms = [
+            { x: 200, y: 400, width: 200, height: 10 },
+            { x: 500, y: 300, width: 200, height: 10 },
+        ];
+
+        let wave = 1;
+        let zombiesToSpawn = 3;
+        let zombiesKilled = 0;
+        let score = 0;
+
+        const gravity = 0.5;
+
+        function spawnZombie(isBoss = false) {
+            zombies.push({
+                x: canvas.width,
+                y: ground.y - (isBoss ? 60 : 30),
+                width: isBoss ? 60 : 30,
+                height: isBoss ? 60 : 30,
+                color: isBoss ? "red" : "green",
+                speed: isBoss ? 0.5 : 1 + Math.random(),
+                health: isBoss ? 10 : 1,
+            });
+        }
+
+        function startNewWave() {
+            for (let i = 0; i < zombiesToSpawn; i++) {
+                setTimeout(() => spawnZombie(wave === 15), i * 500);
+            }
+            document.getElementById("wave-counter").textContent = `Wave: ${wave}`;
+        }
+
+        function handleZombies() {
+            zombies.forEach((zombie, index) => {
+                zombie.x -= zombie.speed;
+
+                ctx.fillStyle = zombie.color;
+                ctx.fillRect(zombie.x, zombie.y, zombie.width, zombie.height);
+
+                if (
+                    zombie.x < player.x + player.width &&
+                    zombie.x + zombie.width > player.x &&
+                    zombie.y < player.y + player.height &&
+                    zombie.y + zombie.height > player.y
+                ) {
+                    alert(`Game Over! You reached wave ${wave}.`);
+                    resetGame();
+                }
+
+                player.bullets.forEach((bullet, bulletIndex) => {
+                    if (
+                        bullet.x < zombie.x + zombie.width &&
+                        bullet.x + 10 > zombie.x &&
+                        bullet.y < zombie.y + zombie.height &&
+                        bullet.y + 5 > zombie.y
+                    ) {
+                        zombie.health--;
+                        player.bullets.splice(bulletIndex, 1);
+                        if (zombie.health <= 0) {
+                            zombies.splice(index, 1);
+                            score++;
+                            zombiesKilled++;
+                            document.getElementById("score-counter").textContent = `Score: ${score}`;
+
+                            if (zombiesKilled === zombiesToSpawn) {
+                                wave++;
+                                zombiesKilled = 0;
+                                zombiesToSpawn = wave === 15 ? 1 : wave * 3;
+                                startNewWave();
+                            }
+                        }
+                    }
+                });
+
+                if (zombie.x + zombie.width < 0) zombies.splice(index, 1);
+            });
+        }
+
+        function drawPlayer() {
+            ctx.fillStyle = player.color;
+            ctx.fillRect(player.x, player.y, player.width, player.height);
+        }
+
+        function handlePlayerPhysics() {
+            player.velocityY += gravity;
+            player.y += player.velocityY;
+
+            if (player.y + player.height >= ground.y) {
+                player.y = ground.y - player.height;
+                player.velocityY = 0;
+                player.isJumping = false;
+            }
+
+            platforms.forEach((platform) => {
+                if (
+                    player.x + player.width > platform.x &&
+                    player.x < platform.x + platform.width &&
+                    player.y + player.height >= platform.y &&
+                    player.y + player.height <= platform.y + platform.height + player.velocityY
+                ) {
+                    player.y = platform.y - player.height;
+                    player.velocityY = 0;
+                    player.isJumping = false;
+                }
+            });
+        }
+
+        function drawGroundAndPlatforms() {
+            ctx.fillStyle = "brown";
+            ctx.fillRect(ground.x, ground.y, ground.width, ground.height);
+
+            platforms.forEach((platform) => {
+                ctx.fillStyle = "gray";
+                ctx.fillRect(platform.x, platform.y, platform.width, platform.height);
+            });
+        }
+
+        function drawBullets() {
+            player.bullets.forEach((bullet, index) => {
+                bullet.x += 7;
+                ctx.fillStyle = "yellow";
+                ctx.fillRect(bullet.x, bullet.y, 10, 5);
+
+                if (bullet.x > canvas.width) player.bullets.splice(index, 1);
+            });
+        }
+
+        function reload() {
+            if (!player.reloading) {
+                player.reloading = true;
+                document.getElementById("ammo-counter").textContent = "Reloading...";
+                setTimeout(() => {
+                    player.currentAmmo = player.clipSize;
+                    player.reloading = false;
+                    document.getElementById("ammo-counter").textContent = `Ammo: ${player.currentAmmo}/${player.clipSize}`;
+                }, player.reloadTime);
+            }
+        }
+
+        window.addEventListener("keydown", (e) => {
+            if (e.key === "ArrowLeft" && player.x > 0) player.x -= player.speed;
+            if (e.key === "ArrowRight" && player.x < canvas.width - player.width) player.x += player.speed;
+            if (e.key === "ArrowUp" && !player.isJumping) {
+                player.velocityY = -player.jumpPower;
+                player.isJumping = true;
+            }
+            if (e.key === " " && !player.reloading) {
+                if (player.currentAmmo > 0) {
+                    player.bullets.push({
+                        x: player.x + player.width,
+                        y: player.y + player.height / 2 - 2.5,
+                    });
+                    player.currentAmmo--;
+                    document.getElementById("ammo-counter").textContent = `Ammo: ${player.currentAmmo}/${player.clipSize}`;
+                } else {
+                    reload();
+                }
+            }
+        });
+
+        function gameLoop() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawGroundAndPlatforms();
+            drawPlayer();
+            drawBullets();
+            handleZombies();
+            handlePlayerPhysics();
+            requestAnimationFrame(gameLoop);
+        }
+
+        function resetGame() {
+            player.currentAmmo = player.clipSize;
+            player.bullets = [];
+            zombies.length = 0;
+            wave = 1;
+            zombiesToSpawn = 3;
+            zombiesKilled = 0;
+            score = 0;
+            document.getElementById("ammo-counter").textContent = `Ammo: ${player.currentAmmo}/${player.clipSize}`;
+            document.getElementById("wave-counter").textContent = `Wave: ${wave}`;
+            document.getElementById("score-counter").textContent = `Score: ${score}`;
+        }
+
+        resetGame();
+        startNewWave();
+        gameLoop();
+    </script>
+</body>
+</html>

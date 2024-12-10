@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Asteroid Dodge</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #000;
+            font-family: Arial, sans-serif;
+            color: white;
+            text-align: center;
+        }
+        canvas {
+            display: block;
+            margin: 20px auto;
+            background-color: #111;
+            border: 2px solid white;
+        }
+        #score {
+            font-size: 20px;
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div id="score">Score: 0</div>
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+
+        // Game variables
+        const player = {
+            x: 400,
+            y: 500,
+            width: 40,
+            height: 40,
+            color: "cyan",
+            speed: 5,
+        };
+
+        const asteroids = [];
+        let score = 0;
+        let gameOver = false;
+
+        // Create an asteroid
+        function createAsteroid() {
+            const asteroid = {
+                x: Math.random() * (canvas.width - 30),
+                y: -30,
+                width: 30,
+                height: 30,
+                speed: 2 + Math.random() * 3,
+            };
+            asteroids.push(asteroid);
+        }
+
+        // Handle player movement
+        function handlePlayerMovement() {
+            window.addEventListener("keydown", (e) => {
+                if (e.key === "ArrowLeft" && player.x > 0) {
+                    player.x -= player.speed;
+                } else if (e.key === "ArrowRight" && player.x < canvas.width - player.width) {
+                    player.x += player.speed;
+                }
+            });
+        }
+
+        // Update asteroids
+        function updateAsteroids() {
+            asteroids.forEach((asteroid, index) => {
+                asteroid.y += asteroid.speed;
+
+                // Check collision with player
+                if (
+                    player.x < asteroid.x + asteroid.width &&
+                    player.x + player.width > asteroid.x &&
+                    player.y < asteroid.y + asteroid.height &&
+                    player.y + player.height > asteroid.y
+                ) {
+                    gameOver = true;
+                }
+
+                // Remove asteroids that move off-screen
+                if (asteroid.y > canvas.height) {
+                    asteroids.splice(index, 1);
+                    score++;
+                    document.getElementById("score").textContent = `Score: ${score}`;
+                }
+            });
+        }
+
+        // Draw game objects
+        function drawPlayer() {
+            ctx.fillStyle = player.color;
+            ctx.fillRect(player.x, player.y, player.width, player.height);
+        }
+
+        function drawAsteroids() {
+            asteroids.forEach((asteroid) => {
+                ctx.fillStyle = "gray";
+                ctx.fillRect(asteroid.x, asteroid.y, asteroid.width, asteroid.height);
+            });
+        }
+
+        // Game loop
+        function gameLoop() {
+            if (gameOver) {
+                alert(`Game Over! Your score: ${score}`);
+                document.location.reload();
+                return;
+            }
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            drawPlayer();
+            drawAsteroids();
+            updateAsteroids();
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Start the game
+        function startGame() {
+            setInterval(createAsteroid, 1000); // Spawn an asteroid every second
+            handlePlayerMovement();
+            gameLoop();
+        }
+
+        startGame();
+    </script>
+</body>
+</html>
